@@ -1,6 +1,7 @@
 package com.ford.vehicleapi.security;
 
 import org.springframework.context.annotation.Bean;
+import org.springframework.security.config.Customizer;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -36,6 +37,8 @@ public class SecurityConfig {
         http
                 // API stateless com Bearer token: sem sessão, sem cookie, logo sem CSRF.
                 .csrf(AbstractHttpConfigurer::disable)
+                // Usa o CorsConfigurationSource de config/CorsConfig (preflight respondido antes da autenticação).
+                .cors(Customizer.withDefaults())
                 .httpBasic(AbstractHttpConfigurer::disable)
                 .formLogin(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -43,6 +46,7 @@ public class SecurityConfig {
                         // ---- Públicos ----
                         .requestMatchers(POST, "/api/v1/auth/login", "/api/v1/auth/register").permitAll()
                         .requestMatchers(GET, "/api/v1/models", "/api/v1/models/**").permitAll()
+                        .requestMatchers(GET, "/api/v1/fipe/**").permitAll()
                         .requestMatchers(PUBLIC_DOCS).permitAll()
                         .requestMatchers("/error").permitAll()
                         // ---- Catálogo: escrita ----

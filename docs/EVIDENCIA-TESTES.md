@@ -1,6 +1,6 @@
 # Evidência de execução dos testes
 
-Gerado a partir dos relatórios do Maven Surefire (`target/surefire-reports`) em 27/09/2026 11:05.
+Gerado a partir dos relatórios do Maven Surefire (`target/surefire-reports`) em 11/10/2026 17:52.
 
 Comando: `./mvnw test` (Windows: `mvnw.cmd test`)
 
@@ -8,10 +8,10 @@ Comando: `./mvnw test` (Windows: `mvnw.cmd test`)
 
 | Testes | Sucesso | Falhas/Erros | Ignorados |
 |---:|---:|---:|---:|
-| **73** | **73** | 0 | 0 |
+| **90** | **90** | 0 | 0 |
 
 ```
-[INFO] Tests run: 73, Failures: 0, Errors: 0, Skipped: 0
+[INFO] Tests run: 90, Failures: 0, Errors: 0, Skipped: 0
 [INFO] BUILD SUCCESS
 ```
 
@@ -19,14 +19,18 @@ Comando: `./mvnw test` (Windows: `mvnw.cmd test`)
 
 | Suíte | Testes | Falhas | Tempo (s) |
 |---|---:|---:|---:|
-| Contexto da aplicação | 1 | 0 | 1.26 |
-| POST /api/v1/auth | 8 | 0 | 10.52 |
-| /api/v1/test-drives | 13 | 0 | 1.67 |
-| /api/v1/users (ADMIN) | 6 | 0 | 0.68 |
-| /api/v1/models | 23 | 0 | 1.20 |
-| /api/v1/models/{modelId}/versions | 9 | 0 | 0.55 |
-| Proteção de recursos com JWT | 7 | 0 | 0.82 |
-| Geração e validação de JWT (unitário) | 6 | 0 | 0.12 |
+| Contexto da aplicação | 1 | 0 | 1.27 |
+| CORS | 4 | 0 | 9.71 |
+| Documentação OpenAPI / Swagger | 2 | 0 | 0.99 |
+| POST /api/v1/auth | 8 | 0 | 0.46 |
+| /api/v1/fipe/models (web service externo) | 5 | 0 | 2.86 |
+| /api/v1/test-drives | 13 | 0 | 1.99 |
+| /api/v1/users (ADMIN) | 6 | 0 | 0.77 |
+| /api/v1/models | 23 | 0 | 1.35 |
+| /api/v1/models/{modelId}/versions | 9 | 0 | 0.65 |
+| Cliente da Tabela FIPE (unitário) | 6 | 0 | 0.28 |
+| Proteção de recursos com JWT | 7 | 0 | 0.21 |
+| Geração e validação de JWT (unitário) | 6 | 0 | 0.02 |
 
 ## Casos de teste
 
@@ -35,6 +39,22 @@ Comando: `./mvnw test` (Windows: `mvnw.cmd test`)
 | | Cenário | Grupo |
 |---|---|---|
 | ✅ | Aplicação sobe com todas as configurações (segurança, JWT, JPA, OpenAPI) | Contexto da aplicação |
+
+### CORS
+
+| | Cenário | Grupo |
+|---|---|---|
+| ✅ | requisição real de origem autorizada recebe Access-Control-Allow-Origin | CORS |
+| ✅ | preflight de origem não autorizada: 403 | CORS |
+| ✅ | expõe Location ao front-end na criação de recursos (201) | CORS |
+| ✅ | preflight de origem autorizada: 200 sem token, com métodos e headers liberados | CORS |
+
+### Documentação OpenAPI / Swagger
+
+| | Cenário | Grupo |
+|---|---|---|
+| ✅ | Swagger UI é acessível sem autenticação | Documentação OpenAPI / Swagger |
+| ✅ | /v3/api-docs é público e documenta todos os recursos, inclusive a integração FIPE | Documentação OpenAPI / Swagger |
 
 ### POST /api/v1/auth
 
@@ -48,6 +68,16 @@ Comando: `./mvnw test` (Windows: `mvnw.cmd test`)
 | ✅ | register: 400 com senha fraca | POST /api/v1/auth |
 | ✅ | register: 409 com e-mail já cadastrado | POST /api/v1/auth |
 | ✅ | login: 200 e retorna access token Bearer com expiração | POST /api/v1/auth |
+
+### /api/v1/fipe/models (web service externo)
+
+| | Cenário | Grupo |
+|---|---|---|
+| ✅ | 502 no formato Problem Details quando a FIPE está fora do ar | /api/v1/fipe/models (web service externo) |
+| ✅ | 200 lista modelos sem autenticação, filtrando pelo nome | /api/v1/fipe/models (web service externo) |
+| ✅ | 200 lista os anos de um modelo | /api/v1/fipe/models (web service externo) |
+| ✅ | 200 devolve o preço FIPE convertido de "R$ 217.609,00" para número | /api/v1/fipe/models (web service externo) |
+| ✅ | 404 quando o modelo não existe na FIPE | /api/v1/fipe/models (web service externo) |
 
 ### /api/v1/test-drives
 
@@ -119,6 +149,17 @@ Comando: `./mvnw test` (Windows: `mvnw.cmd test`)
 | ✅ | POST 400 com preço negativo e combustível inválido | /api/v1/models/{modelId}/versions |
 | ✅ | DELETE 204 como ADMIN; 403 como DEALER | /api/v1/models/{modelId}/versions |
 | ✅ | GET 404 quando a versão pertence a outro modelo | /api/v1/models/{modelId}/versions |
+
+### Cliente da Tabela FIPE (unitário)
+
+| | Cenário | Grupo |
+|---|---|---|
+| ✅ | lista os anos de um modelo | Cliente da Tabela FIPE (unitário) |
+| ✅ | FIPE fora do ar (503) vira ExternalServiceException | Cliente da Tabela FIPE (unitário) |
+| ✅ | lista os modelos da marca Ford (código numérico vira texto) | Cliente da Tabela FIPE (unitário) |
+| ✅ | modelo inexistente (FIPE responde 500 com {"error"}) vira ResourceNotFoundException | Cliente da Tabela FIPE (unitário) |
+| ✅ | lê o preço com os campos em PascalCase da FIPE | Cliente da Tabela FIPE (unitário) |
+| ✅ | limite de requisições (429) vira ExternalServiceException, não 404 | Cliente da Tabela FIPE (unitário) |
 
 ### Proteção de recursos com JWT
 

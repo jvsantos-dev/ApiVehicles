@@ -1,9 +1,10 @@
 # Ford Vehicle Catalog API
 
 API REST do catálogo de veículos Ford (modelos, versões e agendamento de test drive), com autenticação
-**JWT**, três perfis de acesso, documentação **OpenAPI/Swagger** e erros padronizados em **Problem Details**.
+**JWT**, três perfis de acesso, documentação **OpenAPI/Swagger**, **CORS** configurável, consumo do web service
+externo da **Tabela FIPE** e erros padronizados em **Problem Details**.
 
-> Sprint 3 — Arquitetura Orientada a Serviços e Web Services
+> Sprint 3 / Checkpoint 5 — Arquitetura Orientada a Serviços e Web Services
 
 ## Integrantes
 
@@ -19,7 +20,7 @@ API REST do catálogo de veículos Ford (modelos, versões e agendamento de test
 |---|---|
 | **Stack** | Java 17+, Spring Boot 4.1, Spring Security 7 (OAuth2 Resource Server / JWT), Spring Data JPA, Bean Validation, springdoc-openapi 3 |
 | **Banco** | H2 em memória (padrão, zero configuração) ou PostgreSQL (profile `postgres`) |
-| **Testes** | JUnit 5 + MockMvc + Spring Security Test: **73 testes** ([evidência](docs/EVIDENCIA-TESTES.md)) |
+| **Testes** | JUnit 5 + MockMvc + Spring Security Test + MockRestServiceServer: **90 testes** ([evidência](docs/EVIDENCIA-TESTES.md)) |
 | **Arquitetura** | [docs/ARQUITETURA.md](docs/ARQUITETURA.md): diagramas, componentes, fluxos de autenticação e decisões de design |
 
 ---
@@ -81,6 +82,8 @@ Relatórios em `target/surefire-reports/`. O resultado da última execução est
 | `JWT_EXPIRATION` | `1h` | Validade do token (`30m`, `2h`...) |
 | `DB_URL` | `jdbc:postgresql://localhost:5432/fordcatalog` | Só no profile `postgres` |
 | `DB_USERNAME` / `DB_PASSWORD` | `postgres` / `postgres` | Só no profile `postgres` |
+| `CORS_ALLOWED_ORIGINS` | `http://localhost:3000,http://localhost:5173,http://localhost:4200` | Front-ends autorizados a chamar a API pelo navegador (separados por vírgula) |
+| `FIPE_BASE_URL` | `https://parallelum.com.br/fipe/api/v1` | URL da API pública da Tabela FIPE |
 
 ---
 
@@ -149,6 +152,9 @@ Base: `/api/v1`
 | GET | `/users` | ADMIN | 200 | Lista usuários |
 | GET | `/users/{id}` | ADMIN | 200 | Detalha usuário |
 | PATCH | `/users/{id}/role` | ADMIN | 200 | Altera perfil (vale a partir do próximo login) |
+| GET | `/fipe/models?name=` | Público | 200 | Modelos Ford na Tabela FIPE (web service externo) |
+| GET | `/fipe/models/{modelCode}/years` | Público | 200 | Anos-modelo disponíveis na FIPE |
+| GET | `/fipe/models/{modelCode}/years/{yearCode}` | Público | 200 | Preço médio de mercado (FIPE) |
 
 ### O JWT
 
@@ -200,6 +206,7 @@ Todos os erros, inclusive 401 e 403 gerados pela camada de segurança, seguem a
 | 405 / 415 | Método ou Content-Type não suportado |
 | 409 | Duplicidade ou remoção de item com dependentes |
 | 422 | Regra de negócio (modelo fora de linha, transição de status inválida) |
+| 502 | Web service externo (Tabela FIPE) fora do ar, lento ou com limite de requisições |
 
 ---
 
@@ -207,17 +214,20 @@ Todos os erros, inclusive 401 e 403 gerados pela camada de segurança, seguem a
 
 ```
 src/main/java/com/ford/vehicleapi
-├── config/        OpenAPI e carga inicial de dados
+├── config/        OpenAPI, CORS e carga inicial de dados
 ├── controller/    Endpoints REST (recursos, verbos, status codes)
 ├── domain/        Entidades JPA e enums
 ├── dto/           Contratos de entrada/saída (records)
 ├── exception/     Exceções de negócio + GlobalExceptionHandler (Problem Details)
+├── integration/   Clientes de web services externos (Tabela FIPE)
 ├── repository/    Spring Data JPA
 ├── security/      SecurityConfig, JwtConfig, TokenService, handlers 401/403
 └── service/       Regras de negócio e autorização por dono do recurso
 
 src/test/java/com/ford/vehicleapi
+├── config/        Testes de CORS e da documentação OpenAPI
 ├── controller/    Testes de integração por recurso (MockMvc + JWT real)
+├── integration/   Teste unitário do cliente FIPE (servidor HTTP simulado)
 ├── security/      Testes de JWT (unitário + proteção ponta a ponta)
 └── support/       Base comum dos testes (login, asserção do formato de erro)
 ```
@@ -230,5 +240,32 @@ src/test/java/com/ford/vehicleapi
 | **Autenticação e autorização** (20%) | `security/SecurityConfig.java` (rotas públicas × protegidas, regras por perfil), `service/TestDriveService.java` (autorização por dono), 3 perfis: ADMIN, DEALER, CUSTOMER |
 | **JWT** (15%) | `security/TokenService.java` (geração), `security/JwtConfig.java` (validação de assinatura, exp, iss, claims), expiração configurável, claims `uid`/`roles` usadas na autorização |
 | **REST nível 2** (20%) | Controllers em `controller/`: recursos no plural, sub-recurso de versões, GET/POST/PUT/PATCH/DELETE, 201 + `Location`, 204, 400/401/403/404/405/409/415/422 |
-| **Testes** (15%) | 73 testes em `src/test`: sucesso, erro de validação, 401, 403, 404, 409, 422, token expirado/adulterado. Evidência: [docs/EVIDENCIA-TESTES.md](docs/EVIDENCIA-TESTES.md) |
+| **Testes** (15%) | 90 testes em `src/test`: sucesso, erro de validação, 401, 403, 404, 409, 422, token expirado/adulterado. Evidência: [docs/EVIDENCIA-TESTES.md](docs/EVIDENCIA-TESTES.md) |
 | **Documentação e erros** (10%) | Swagger em `/swagger-ui.html`, `exception/GlobalExceptionHandler.java` (Problem Details), este README |
+
+## 5. Checkpoint 5
+
+| Item pedido | Onde está |
+|---|---|
+| **Consumo de API / web service externo** | `integration/fipe/FipeClient.java` consome a [API pública da Tabela FIPE](https://deividfortuna.github.io/fipe/) com `RestClient` (timeouts em `FipeConfig`), `service/FipeService.java` converte o formato da FIPE (ex.: `"R$ 217.609,00"` → `217609.00`) e `controller/FipeController.java` expõe em `/api/v1/fipe/models`. Falhas da FIPE viram **404** (modelo/ano inexistente) ou **502** (fora do ar, timeout, limite de requisições) no padrão Problem Details |
+| **Documentação automática com Swagger** | springdoc-openapi gera `/v3/api-docs` e `/swagger-ui.html` a partir dos controllers; `config/OpenApiConfig.java` (título, descrição, esquema Bearer JWT) e anotações `@Tag`/`@Operation`/`@ApiResponse` em cada endpoint |
+| **Configuração de CORS** | `config/CorsConfig.java` + `app.cors.*` em `application.properties`: só origens autorizadas, métodos e headers liberados explicitamente, `Location`/`WWW-Authenticate` expostos ao front-end, preflight respondido pelo Spring Security sem exigir token |
+| **Testes automatizados por entidade** | Modelos (`VehicleModelControllerTest`), versões (`VehicleVersionControllerTest`), test drives (`TestDriveControllerTest`), usuários (`UserControllerTest`, `AuthControllerTest`), FIPE (`FipeControllerTest`, `FipeClientTest`), CORS (`CorsTest`) e Swagger (`OpenApiDocsTest`) |
+
+Exemplo (preço FIPE do Bronco Sport Badlands 2025):
+
+```bash
+curl "http://localhost:8080/api/v1/fipe/models?name=bronco"
+curl http://localhost:8080/api/v1/fipe/models/11489/years
+curl http://localhost:8080/api/v1/fipe/models/11489/years/2025-1
+```
+
+```json
+{"fipeCode":"003513-0","brand":"Ford","model":"Bronco Sport Badlands 2.0L TB 4WD Aut.","modelYear":2025,
+ "fuel":"Gasolina","price":217609.00,"referenceMonth":"outubro de 2026"}
+```
+
+> **Antivírus com inspeção HTTPS (AVG, Avast, Kaspersky...)**: se a FIPE responder sempre 502 e o log mostrar
+> `PKIX path building failed`, o antivírus está trocando o certificado da FIPE por um dele, que o Java não conhece.
+> Rode usando o repositório de certificados do Windows:
+> `mvnw.cmd spring-boot:run "-Dspring-boot.run.jvmArguments=-Djavax.net.ssl.trustStoreType=Windows-ROOT"`

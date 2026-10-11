@@ -29,23 +29,26 @@ flowchart LR
     end
 
     DB[("Banco relacional<br/>H2 (padrão) ou PostgreSQL")]
+    FIPE[["Tabela FIPE<br/>(web service externo)"]]
 
     SW & FE & PM -- "HTTPS + JSON<br/>Authorization: Bearer &lt;JWT&gt;" --> SEC
     REPO --> DB
+    SRV -- "HTTPS + JSON<br/>(RestClient, timeouts)" --> FIPE
 ```
 
 ## 2. Componentes e responsabilidades
 
 | Camada / pacote | Classes principais | Responsabilidade |
 |---|---|---|
-| `controller` | `AuthController`, `VehicleModelController`, `VehicleVersionController`, `TestDriveController`, `UserController` | Mapear **recursos** em URIs, receber/validar DTOs (`@Valid`), escolher o **verbo** e o **status code** (201 + `Location`, 204...). Não contém regra de negócio. |
-| `service` | `AuthService`, `VehicleModelService`, `VehicleVersionService`, `TestDriveService`, `UserService` | Regras de negócio e transações: unicidade (409), regras de estado (422), **autorização por propriedade** (cliente só acessa o próprio test drive). |
+| `controller` | `AuthController`, `VehicleModelController`, `VehicleVersionController`, `TestDriveController`, `UserController`, `FipeController` | Mapear **recursos** em URIs, receber/validar DTOs (`@Valid`), escolher o **verbo** e o **status code** (201 + `Location`, 204...). Não contém regra de negócio. |
+| `service` | `AuthService`, `VehicleModelService`, `VehicleVersionService`, `TestDriveService`, `UserService`, `FipeService` | Regras de negócio e transações: unicidade (409), regras de estado (422), **autorização por propriedade** (cliente só acessa o próprio test drive). |
 | `repository` | `*Repository` (Spring Data JPA) | Acesso a dados. |
 | `domain` | `VehicleModel`, `VehicleVersion`, `TestDrive`, `User`, enums | Entidades JPA e invariantes (ex.: transições válidas de `TestDriveStatus`). |
 | `dto` | `*Request`, `*Response` (records) | Contrato da API, desacoplado das entidades. Senha **nunca** sai em respostas. |
 | `security` | `SecurityConfig`, `JwtConfig`, `TokenService`, `CurrentUser`, `RestAuthenticationEntryPoint`, `RestAccessDeniedHandler` | Autenticação (JWT), autorização por perfil/rota, geração e validação de tokens. |
-| `exception` | `GlobalExceptionHandler`, `ResourceNotFoundException`, `ConflictException`, `BusinessRuleException` | Tradução de exceções em respostas de erro **padronizadas**. |
-| `config` | `OpenApiConfig`, `DataInitializer` | Documentação OpenAPI/Swagger e carga inicial (usuários de exemplo + catálogo). |
+| `integration.fipe` | `FipeClient`, `FipeConfig`, `FipeProperties` | Consumo do web service externo da Tabela FIPE: chamadas HTTP com timeout e tradução das falhas externas em 404/502. |
+| `exception` | `GlobalExceptionHandler`, `ResourceNotFoundException`, `ConflictException`, `BusinessRuleException`, `ExternalServiceException` | Tradução de exceções em respostas de erro **padronizadas**. |
+| `config` | `OpenApiConfig`, `CorsConfig`, `DataInitializer` | Documentação OpenAPI/Swagger, política de CORS e carga inicial (usuários de exemplo + catálogo). |
 
 ### Modelo de dados
 

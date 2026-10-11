@@ -60,6 +60,11 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return problem(HttpStatus.UNPROCESSABLE_CONTENT, "business-rule", "Regra de negócio violada", ex.getMessage(), request);
     }
 
+    @ExceptionHandler(ExternalServiceException.class)
+    public ResponseEntity<ProblemDetail> handleExternalService(ExternalServiceException ex, HttpServletRequest request) {
+        return problem(HttpStatus.BAD_GATEWAY, "external-service", "Serviço externo indisponível", ex.getMessage(), request);
+    }
+
     @ExceptionHandler(AuthenticationException.class)
     public ResponseEntity<ProblemDetail> handleAuthentication(AuthenticationException ex, HttpServletRequest request) {
         String detail;

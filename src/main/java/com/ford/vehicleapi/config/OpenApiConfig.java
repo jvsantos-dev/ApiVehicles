@@ -28,6 +28,9 @@ public class OpenApiConfig {
                                 | DEALER | dealer@ford.com | Dealer@123 |
                                 | CUSTOMER | customer@ford.com | Customer@123 |
 
+                                Os endpoints de **Tabela FIPE** consomem um web service externo (API pública da FIPE) \
+                                e informam o preço médio de mercado dos veículos Ford.
+
                                 Todos os erros seguem o formato Problem Details (RFC 9457), `application/problem+json`.
                                 """))
                 .components(new Components().addSecuritySchemes("bearerAuth", new SecurityScheme()
